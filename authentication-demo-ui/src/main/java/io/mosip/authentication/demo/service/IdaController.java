@@ -668,7 +668,7 @@ public class IdaController {
 	@FXML
 	private void onRequestOtp() {
 		responsetextField.setText(null);
-		otpValue.setText(null);
+		otpValue.setText("");
 		OtpRequestDTO otpRequestDTO = new OtpRequestDTO();
 		otpRequestDTO.setId("mosip.identity.otp");
 		otpRequestDTO.setIndividualId(idValue.getText());
@@ -890,11 +890,13 @@ public class IdaController {
 		dialog = null;
 		previewGrid = new GridPane();
 		GridPane photoPane = new GridPane();
+		photoPane.setPrefWidth(500);
 		ObservableList<ColumnConstraints> photoColumnConstraints = photoPane.getColumnConstraints();
 		ColumnConstraints photoConstraints1 = new ColumnConstraints();
-		photoConstraints1.setPercentWidth(60);
+		photoConstraints1.setPercentWidth(70);
 		ColumnConstraints photoConstraints2 = new ColumnConstraints();
-		photoConstraints2.setPercentWidth(40);
+		photoConstraints2.setPercentWidth(30);
+
 		photoColumnConstraints.add(photoConstraints1);
 		photoColumnConstraints.add(photoConstraints2);
 
@@ -903,10 +905,13 @@ public class IdaController {
 		photoRowConstraints1.setMinHeight(30);
 		photoRowConstraints1.setMaxHeight(30);
 		RowConstraints photoRowConstraints2 = new RowConstraints();
-		photoRowConstraints2.setMinHeight(20);
-		photoRowConstraints2.setMaxHeight(200);
+		photoRowConstraints2.setMinHeight(30);
+		photoRowConstraints2.setMaxHeight(30);
+		RowConstraints photoRowConstraints3 = new RowConstraints();
+		photoRowConstraints3.setMinHeight(200);
 		photoRowConstraints.add(photoRowConstraints1);
 		photoRowConstraints.add(photoRowConstraints2);
+		photoRowConstraints.add(photoRowConstraints3);
 		previewGrid.add(photoPane, 0, 0);
 
 		GridPane detailsPane = new GridPane();
@@ -914,24 +919,25 @@ public class IdaController {
 		ColumnConstraints detailColumnConstraints1 = new ColumnConstraints();
 		detailColumnConstraints1.setPercentWidth(10);
 		ColumnConstraints detailColumnConstraints2 = new ColumnConstraints();
-		detailColumnConstraints2.setPercentWidth(20);
+		detailColumnConstraints2.setPercentWidth(40);
 		ColumnConstraints detailColumnConstraints3 = new ColumnConstraints();
-		detailColumnConstraints3.setPercentWidth(1);
+		detailColumnConstraints3.setPercentWidth(10);
 		ColumnConstraints detailColumnConstraints4 = new ColumnConstraints();
-		detailColumnConstraints4.setPercentWidth(69);
+		detailColumnConstraints4.setPercentWidth(40);
 		detailsColumnConstraints.add(detailColumnConstraints1);
 		detailsColumnConstraints.add(detailColumnConstraints2);
 		detailsColumnConstraints.add(detailColumnConstraints3);
 		detailsColumnConstraints.add(detailColumnConstraints4);
 
 		ObservableList<RowConstraints> detailRowConstraints = detailsPane.getRowConstraints();
-		for (int i = 0; i < jsonObject.size() + 2; i++) {
+		for (int i = 0; i < jsonObject.size() + 3; i++) {
 			RowConstraints detailRowConstraints1 = new RowConstraints();
 			detailRowConstraints1.setMinHeight(20);
 			detailRowConstraints1.setMaxHeight(200);
 			detailRowConstraints.add(detailRowConstraints1);
 		}
-		previewGrid.add(detailsPane, 0, 1);
+		photoPane.add(detailsPane, 0, 2);
+//		previewGrid.add(detailsPane, 0, 1);
 
 		LinkedHashMap<String, LinkedHashMap<String, String>> valueMap = new LinkedHashMap<>();
 		for(Object key : jsonObject.keySet()) {
@@ -982,13 +988,12 @@ public class IdaController {
 		vPhotoBox.setMinHeight(20);
 		vPhotoBox.setMaxHeight(100);
 
-		photoPane.add(vPhotoBox, 1, 1);
+		photoPane.add(vPhotoBox, 1, 1, 1, 10);
 
 		Label statusLabel = new Label();
 		statusLabel.setVisible(true);
 		statusLabel.setMinHeight(20);
 		statusLabel.setMaxHeight(100);
-		statusLabel.setPrefWidth(400);
 		statusLabel.setAlignment(Pos.CENTER);
 		statusLabel.setText(labelBundle.getString("ekycPreviewLabel"));
 		statusLabel.setStyle("-fx-text-fill: green; -fx-font-size: 20px; -fx-font-weight: bold; scroll-bar:horizontal:enabled");
@@ -997,13 +1002,13 @@ public class IdaController {
 		statusHBox1.getChildren().add(statusLabel);
 		statusHBox1.setMinHeight(20);
 		statusHBox1.setMaxHeight(100);
-		statusHBox1.setAlignment(Pos.CENTER_LEFT);
+		statusHBox1.setAlignment(Pos.CENTER);
 
 		VBox statusVbox1 = new VBox();
 		statusVbox1.getChildren().add(statusHBox1);
 		statusVbox1.setMinHeight(20);
 		statusVbox1.setMaxHeight(100);
-		photoPane.add(statusVbox1, 0, 1);
+		photoPane.add(statusVbox1, 0, 1, 2, 1);
 
 
 		Integer rowNo = 0;
@@ -1014,7 +1019,7 @@ public class IdaController {
 			langLabel.setMaxHeight(100);
 			langLabel.setAlignment(Pos.CENTER_LEFT);
 			langLabel.setText(labelBundle.getString(entry.getKey().toString()));
-			langLabel.setStyle("-fx-text-fill: green; -fx-font-size: 20px; -fx-font-weight: bold; scroll-bar:horizontal:enabled");
+			langLabel.setStyle("-fx-text-fill: brown; -fx-font-size: 15px; -fx-font-weight: bold; scroll-bar:horizontal:enabled");
 
 			HBox hBox0 = new HBox();
 			hBox0.getChildren().add(langLabel);
@@ -1026,7 +1031,7 @@ public class IdaController {
 			vbox0.getChildren().add(hBox0);
 			vbox0.setMinHeight(20);
 			vbox0.setMaxHeight(100);
-			detailsPane.add(vbox0, 0, rowNo);
+			detailsPane.add(vbox0, 0, rowNo, 2, 1);
 
 			rowNo++;
 
@@ -1036,6 +1041,7 @@ public class IdaController {
 				label1.setVisible(true);
 				label1.setMinHeight(20);
 				label1.setMaxHeight(100);
+				label1.setMaxWidth(200);
 				Font font1 = new Font(12);
 				label1.setFont(font1);
 				label1.setText(valueEmtry.getKey().toString());
@@ -1044,12 +1050,14 @@ public class IdaController {
 				hBox1.getChildren().add(label1);
 				hBox1.setMinHeight(20);
 				hBox1.setMaxHeight(100);
+				hBox1.setMaxWidth(200);
 				hBox1.setAlignment(Pos.CENTER_LEFT);
 
 				VBox vbox1 = new VBox();
 				vbox1.getChildren().add(hBox1);
 				vbox1.setMinHeight(20);
 				vbox1.setMaxHeight(100);
+				vbox1.setMaxWidth(200);
 				detailsPane.add(vbox1, 1, rowNo);
 
 				Label label2 = new Label();
@@ -1077,6 +1085,7 @@ public class IdaController {
 				label3.setVisible(true);
 				label3.setMinHeight(20);
 				label3.setMaxHeight(100);
+				label3.setMaxWidth(200);
 				Font font3 = new Font(12);
 				label3.setFont(font3);
 				label3.setText(valueEmtry.getValue().toString());
@@ -1085,16 +1094,19 @@ public class IdaController {
 				hBox3.getChildren().add(label3);
 				hBox3.setMinHeight(20);
 				hBox3.setMaxHeight(100);
+				hBox3.setMaxWidth(200);
 				hBox3.setAlignment(Pos.CENTER_LEFT);
 
 				VBox vbox3 = new VBox();
 				vbox3.getChildren().add(hBox3);
 				vbox3.setMinHeight(20);
 				vbox3.setMaxHeight(100);
+				vbox3.setMaxWidth(200);
 				detailsPane.add(vbox3, 3, rowNo);
 
 				rowNo++;
 			}
+			rowNo++;
 		}
 	}
 

@@ -5,7 +5,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
+	import java.nio.charset.StandardCharsets;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.KeyManagementException;
@@ -23,16 +23,7 @@ import java.security.cert.X509Certificate;
 import java.security.spec.MGF1ParameterSpec;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.TimeZone;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -51,6 +42,14 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 
+import io.mosip.authentication.demo.util.ApplicationResourceContext;
+import io.mosip.biometrics.util.ConvertRequestDto;
+import io.mosip.biometrics.util.face.FaceDecoder;
+import javafx.fxml.Initializable;
+import javafx.geometry.Pos;
+import javafx.scene.control.*;
+import javafx.scene.image.Image;
+import javafx.scene.layout.*;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.codec.digest.DigestUtils;
@@ -63,6 +62,8 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.bouncycastle.operator.OperatorCreationException;
+import org.jose4j.json.internal.json_simple.JSONObject;
+import org.jose4j.json.internal.json_simple.parser.JSONParser;
 import org.jose4j.lang.JoseException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -107,17 +108,7 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.scene.Scene;
-import javafx.scene.control.Alert;
-import javafx.scene.control.Button;
-import javafx.scene.control.ButtonBar;
-import javafx.scene.control.ButtonType;
-import javafx.scene.control.CheckBox;
-import javafx.scene.control.ComboBox;
-import javafx.scene.control.TextArea;
-import javafx.scene.control.TextField;
 import javafx.scene.image.ImageView;
-import javafx.scene.layout.AnchorPane;
-import javafx.scene.layout.GridPane;
 import javafx.scene.text.Font;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
@@ -217,7 +208,12 @@ public class IdaController {
 	
 	Stage dialog;
 	
-	private String ekycResponseText;
+	private GridPane previewGrid;
+
+	@Value("${mosip.primary-language}")
+	private String applicationLanguage;
+
+	private ResourceBundle labelBundle;
 
 	@PostConstruct
 	public void postConstruct() throws NoSuchAlgorithmException, UnrecoverableEntryException, KeyStoreException,
@@ -266,7 +262,7 @@ public class IdaController {
 		demoInputData.setDisable(true);
 		ekycResponse.setVisible(false);
 		ekycResponse.setOnAction(event -> {
-			displayDialog(ekycResponseText);
+			displayDialog();
 		});
 		idValue.textProperty().addListener((observable, oldValue, newValue) -> {
 			updateSendButton();
@@ -275,28 +271,18 @@ public class IdaController {
 		otpValue.textProperty().addListener((observable, oldValue, newValue) -> {
 			updateSendButton();
 		});
+		labelBundle = ApplicationResourceContext.getInstance().getLabelBundle();
 	}
 
-	private void displayDialog(String data) {
-		if(dialog ==  null || ekycTextArea == null) {
-			ekycTextArea = new TextArea();
-			
+	private void displayDialog() {
+		if(dialog ==  null || previewGrid == null) {
 			dialog = new Stage();
 			dialog.initModality(Modality.NONE);
-			AnchorPane dialogVbox = new AnchorPane();
-			AnchorPane.setTopAnchor(ekycTextArea, 0.0);
-			AnchorPane.setBottomAnchor(ekycTextArea, 0.0);
-			AnchorPane.setLeftAnchor(ekycTextArea, 0.0);
-			AnchorPane.setRightAnchor(ekycTextArea, 0.0);
-			ekycTextArea.setEditable(false);
-			dialogVbox.getChildren().add(ekycTextArea);
-			Scene dialogScene = new Scene(dialogVbox);
+			Scene dialogScene = new Scene(previewGrid);
 			dialog.setScene(dialogScene);
 			dialog.setTitle("eKYC");
-			
 		} 
 		
-		ekycTextArea.setText(data);
 		dialog.setAlwaysOnTop(true);
 		dialog.show();
 	}
@@ -682,6 +668,7 @@ public class IdaController {
 	@FXML
 	private void onRequestOtp() {
 		responsetextField.setText(null);
+		otpValue.setText(null);
 		OtpRequestDTO otpRequestDTO = new OtpRequestDTO();
 		otpRequestDTO.setId("mosip.identity.otp");
 		otpRequestDTO.setIndividualId(idValue.getText());
@@ -838,8 +825,8 @@ public class IdaController {
 				if (status) {
 					if (isEkycAuthType()) {
 						ekycResponse.setVisible(true);
-						decryptEkycResponse(authResponse);
-						displayDialog(ekycResponseText);
+						decryptEkycResponse(authResponse, status);
+						displayDialog();
 					}
 					responsetextField.setStyle("-fx-text-fill: green; -fx-font-size: 20px; -fx-font-weight: bold");
 				} else {
@@ -863,7 +850,7 @@ public class IdaController {
 	}
 
 	@SuppressWarnings("rawtypes")
-	private void decryptEkycResponse(ResponseEntity<Map> authResponse) throws Exception {
+	private void decryptEkycResponse(ResponseEntity<Map> authResponse, Boolean status) throws Exception {
 		String partnerId = env.getProperty("partnerId");
 		PrivateKeyEntry ekycKey = keyMgrUtil.getKeyEntry(keyMgrUtil.getKeysDirPath(), partnerId);
 		Map ekycResponseData = (Map) authResponse.getBody().get("response");
@@ -891,10 +878,226 @@ public class IdaController {
 		GCMParameterSpec gcmParameterSpec = new GCMParameterSpec(128, nonce); 
 		cipher.init(Cipher.DECRYPT_MODE, secretKey, gcmParameterSpec);
 
-		ekycResponseText = mapper.writerWithDefaultPrettyPrinter()
+		JSONObject jsonObject;
+		String ekycResponseText = mapper.writerWithDefaultPrettyPrinter()
 				.writeValueAsString(mapper.readValue(cipher.doFinal(encryptedKycData), Object.class));
+		JSONParser parser = new JSONParser();
+		jsonObject = (JSONObject) parser.parse(ekycResponseText);
+		renderView(jsonObject, status);
 	}
-	
+
+	private void renderView(JSONObject jsonObject, boolean status) throws Exception {
+		dialog = null;
+		previewGrid = new GridPane();
+		GridPane photoPane = new GridPane();
+		ObservableList<ColumnConstraints> photoColumnConstraints = photoPane.getColumnConstraints();
+		ColumnConstraints photoConstraints1 = new ColumnConstraints();
+		photoConstraints1.setPercentWidth(60);
+		ColumnConstraints photoConstraints2 = new ColumnConstraints();
+		photoConstraints2.setPercentWidth(40);
+		photoColumnConstraints.add(photoConstraints1);
+		photoColumnConstraints.add(photoConstraints2);
+
+		ObservableList<RowConstraints> photoRowConstraints = photoPane.getRowConstraints();
+		RowConstraints photoRowConstraints1 = new RowConstraints();
+		photoRowConstraints1.setMinHeight(30);
+		photoRowConstraints1.setMaxHeight(30);
+		RowConstraints photoRowConstraints2 = new RowConstraints();
+		photoRowConstraints2.setMinHeight(20);
+		photoRowConstraints2.setMaxHeight(200);
+		photoRowConstraints.add(photoRowConstraints1);
+		photoRowConstraints.add(photoRowConstraints2);
+		previewGrid.add(photoPane, 0, 0);
+
+		GridPane detailsPane = new GridPane();
+		ObservableList<ColumnConstraints> detailsColumnConstraints = detailsPane.getColumnConstraints();
+		ColumnConstraints detailColumnConstraints1 = new ColumnConstraints();
+		detailColumnConstraints1.setPercentWidth(10);
+		ColumnConstraints detailColumnConstraints2 = new ColumnConstraints();
+		detailColumnConstraints2.setPercentWidth(20);
+		ColumnConstraints detailColumnConstraints3 = new ColumnConstraints();
+		detailColumnConstraints3.setPercentWidth(1);
+		ColumnConstraints detailColumnConstraints4 = new ColumnConstraints();
+		detailColumnConstraints4.setPercentWidth(69);
+		detailsColumnConstraints.add(detailColumnConstraints1);
+		detailsColumnConstraints.add(detailColumnConstraints2);
+		detailsColumnConstraints.add(detailColumnConstraints3);
+		detailsColumnConstraints.add(detailColumnConstraints4);
+
+		ObservableList<RowConstraints> detailRowConstraints = detailsPane.getRowConstraints();
+		for (int i = 0; i < jsonObject.size() + 2; i++) {
+			RowConstraints detailRowConstraints1 = new RowConstraints();
+			detailRowConstraints1.setMinHeight(20);
+			detailRowConstraints1.setMaxHeight(200);
+			detailRowConstraints.add(detailRowConstraints1);
+		}
+		previewGrid.add(detailsPane, 0, 1);
+
+		LinkedHashMap<String, LinkedHashMap<String, String>> valueMap = new LinkedHashMap<>();
+		for(Object key : jsonObject.keySet()) {
+			String[] keyValues = key.toString().split("_");
+			String keyValue ="";
+			//		for (String keyName : keyValues[0].split("(?=\\p{Upper})")) {
+			//			keyValue += " " + keyName.substring(0, 1).toUpperCase() + keyName.substring(1);
+			//		}
+			//		keyValue = keyValue.trim();
+			String lang = keyValues.length > 1 ? keyValues[1] : applicationLanguage;
+
+			keyValue = ApplicationResourceContext.getInstance().getOtherLabelBundle(lang).getString(keyValues[0]);
+			if(valueMap.containsKey(lang)) {
+				LinkedHashMap<String, String> map = valueMap.get(lang);
+				map.put(keyValue, jsonObject.get(key).toString());
+				valueMap.put(lang, map);
+			} else {
+				LinkedHashMap<String, String> map = new LinkedHashMap<>();
+				map.put(keyValue, jsonObject.get(key).toString());
+				valueMap.put(lang, map);
+			}
+		}
+
+		LinkedHashMap<String, String> faceMap = valueMap.get(applicationLanguage);
+		String imageValue = faceMap.get("Face");
+
+		ConvertRequestDto requestDto = new ConvertRequestDto();
+		requestDto.setModality("Face");
+		requestDto.setVersion("ISO19794_5_2011");
+		requestDto.setInputBytes(CryptoUtil.decodePlainBase64(imageValue));
+
+		byte [] imageData = FaceDecoder.convertFaceISOToImageBytes (requestDto);
+		InputStream io = new ByteArrayInputStream(imageData);
+		Image image = new Image(io);
+		ImageView imageView = new ImageView(image);
+		imageView.setFitHeight(120);
+		imageView.setFitWidth(100);
+		valueMap.get(applicationLanguage).remove("Face");
+
+		HBox hPhotoBox = new HBox();
+		hPhotoBox.getChildren().add(imageView);
+		hPhotoBox.setPrefHeight(120);
+		hPhotoBox.setPrefWidth(100);
+		hPhotoBox.setAlignment(Pos.CENTER);
+
+		VBox vPhotoBox = new VBox();
+		vPhotoBox.getChildren().add(hPhotoBox);
+		vPhotoBox.setMinHeight(20);
+		vPhotoBox.setMaxHeight(100);
+
+		photoPane.add(vPhotoBox, 1, 1);
+
+		Label statusLabel = new Label();
+		statusLabel.setVisible(true);
+		statusLabel.setMinHeight(20);
+		statusLabel.setMaxHeight(100);
+		statusLabel.setPrefWidth(400);
+		statusLabel.setAlignment(Pos.CENTER);
+		statusLabel.setText(labelBundle.getString("ekycPreviewLabel"));
+		statusLabel.setStyle("-fx-text-fill: green; -fx-font-size: 20px; -fx-font-weight: bold; scroll-bar:horizontal:enabled");
+
+		HBox statusHBox1 = new HBox();
+		statusHBox1.getChildren().add(statusLabel);
+		statusHBox1.setMinHeight(20);
+		statusHBox1.setMaxHeight(100);
+		statusHBox1.setAlignment(Pos.CENTER_LEFT);
+
+		VBox statusVbox1 = new VBox();
+		statusVbox1.getChildren().add(statusHBox1);
+		statusVbox1.setMinHeight(20);
+		statusVbox1.setMaxHeight(100);
+		photoPane.add(statusVbox1, 0, 1);
+
+
+		Integer rowNo = 0;
+		for (Map.Entry<String, LinkedHashMap<String, String>> entry : valueMap.entrySet()) {
+			Label langLabel = new Label();
+			langLabel.setVisible(true);
+			langLabel.setMinHeight(20);
+			langLabel.setMaxHeight(100);
+			langLabel.setAlignment(Pos.CENTER_LEFT);
+			langLabel.setText(labelBundle.getString(entry.getKey().toString()));
+			langLabel.setStyle("-fx-text-fill: green; -fx-font-size: 20px; -fx-font-weight: bold; scroll-bar:horizontal:enabled");
+
+			HBox hBox0 = new HBox();
+			hBox0.getChildren().add(langLabel);
+			hBox0.setMinHeight(20);
+			hBox0.setMaxHeight(100);
+			hBox0.setAlignment(Pos.CENTER_LEFT);
+
+			VBox vbox0 = new VBox();
+			vbox0.getChildren().add(hBox0);
+			vbox0.setMinHeight(20);
+			vbox0.setMaxHeight(100);
+			detailsPane.add(vbox0, 0, rowNo);
+
+			rowNo++;
+
+			for (Map.Entry<String, String> valueEmtry : entry.getValue().entrySet()) {
+				Label label1 = new Label();
+				label1.setId(rowNo+ "KEY_LABEL");
+				label1.setVisible(true);
+				label1.setMinHeight(20);
+				label1.setMaxHeight(100);
+				Font font1 = new Font(12);
+				label1.setFont(font1);
+				label1.setText(valueEmtry.getKey().toString());
+
+				HBox hBox1 = new HBox();
+				hBox1.getChildren().add(label1);
+				hBox1.setMinHeight(20);
+				hBox1.setMaxHeight(100);
+				hBox1.setAlignment(Pos.CENTER_LEFT);
+
+				VBox vbox1 = new VBox();
+				vbox1.getChildren().add(hBox1);
+				vbox1.setMinHeight(20);
+				vbox1.setMaxHeight(100);
+				detailsPane.add(vbox1, 1, rowNo);
+
+				Label label2 = new Label();
+				label2.setVisible(true);
+				label2.setText(":");
+				label2.setMinHeight(20);
+				label2.setMaxHeight(100);
+				Font font2 = new Font(12);
+				label2.setFont(font2);
+
+				HBox hBox2 = new HBox();
+				hBox2.getChildren().add(label2);
+				hBox2.setMinHeight(20);
+				hBox2.setMaxHeight(100);
+				hBox2.setAlignment(Pos.CENTER);
+
+				VBox vbox2 = new VBox();
+				vbox2.getChildren().add(hBox2);
+				vbox2.setMinHeight(20);
+				vbox2.setMaxHeight(100);
+				detailsPane.add(vbox2, 2, rowNo);
+
+				Label label3 = new Label();
+				label3.setId(rowNo+ "KEY_LABEL");
+				label3.setVisible(true);
+				label3.setMinHeight(20);
+				label3.setMaxHeight(100);
+				Font font3 = new Font(12);
+				label3.setFont(font3);
+				label3.setText(valueEmtry.getValue().toString());
+
+				HBox hBox3 = new HBox();
+				hBox3.getChildren().add(label3);
+				hBox3.setMinHeight(20);
+				hBox3.setMaxHeight(100);
+				hBox3.setAlignment(Pos.CENTER_LEFT);
+
+				VBox vbox3 = new VBox();
+				vbox3.getChildren().add(hBox3);
+				vbox3.setMinHeight(20);
+				vbox3.setMaxHeight(100);
+				detailsPane.add(vbox3, 3, rowNo);
+
+				rowNo++;
+			}
+		}
+	}
+
 	public Map<String, String> splitEncryptedData(@RequestBody String data) {
 		byte[] dataBytes = CryptoUtil.decodeURLSafeBase64(data);
 		byte[][] splits = splitAtFirstOccurance(dataBytes, env.getRequiredProperty("mosip.kernel.data-key-splitter").getBytes());
@@ -1076,8 +1279,6 @@ public class IdaController {
 	@Autowired
 	private CryptoUtility cryptoUtil;
 
-	private TextArea ekycTextArea;
-
 	public static void turnOffSslChecking() throws KeyManagementException, java.security.NoSuchAlgorithmException {
 		// Install the all-trusting trust manager
 		final SSLContext sc = SSLContext.getInstance(SSL);
@@ -1134,7 +1335,8 @@ public class IdaController {
 		sendAuthRequest.setDisable(false);
 		capture = null;
 		previousHash = null;
-		ekycResponseText = null;
+		previewGrid = null;
+		dialog = null;
 		ekycResponse.setVisible(false);
 		updateBioPane();
 		updateSendButton();
@@ -1158,7 +1360,7 @@ public class IdaController {
 
 	@FXML
 	private void onEKyc() {
-		ekycResponse.setVisible(isEkycAuthType() && StringUtils.isNotBlank(ekycResponseText));
+		ekycResponse.setVisible(isEkycAuthType() && previewGrid != null);
 	}
 	
 	private boolean isEkycAuthType() {
